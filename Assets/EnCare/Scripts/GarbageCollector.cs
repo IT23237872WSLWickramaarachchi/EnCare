@@ -16,7 +16,11 @@ namespace EnCare
         void Awake()
         {
             zone = GetComponent<BoxCollider>();
-            zone.isTrigger = true;
+            if (zone != null) zone.isTrigger = true;
+            if (mission == null)
+            {
+                mission = Object.FindFirstObjectByType<CleanupMission>();
+            }
             if (mission == null)
             {
                 Debug.LogError("EnCare: assign the mission on the collector.", this);

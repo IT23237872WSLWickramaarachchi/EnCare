@@ -3,7 +3,102 @@ guid: 362513ac238b6e243bc83d9bde6627b5
 ModelImporter:
   serializedVersion: 24200
   internalIDToNameTable: []
-  externalObjects: {}
+  externalObjects:
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: BigWhiteTable
+    second: {fileID: 2100000, guid: 7e62054e99ef66b4586fd469bdb41813, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: BrownChair
+    second: {fileID: 2100000, guid: 51624a36f3ec19d4bbf8ace28b461dd9, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Curtain
+    second: {fileID: 2100000, guid: 38189474f07cfc548af885785a3f812c, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Desktop
+    second: {fileID: 2100000, guid: 68ffb47469f54d545bf9d75d52521bb6, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Door_Solid
+    second: {fileID: 2100000, guid: a9474b8d558a0ef43afcb92fb936465a, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Metal_Black
+    second: {fileID: 2100000, guid: fbda29e232333df42b51baaec8f057bc, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: SmallWhiteTable_low.001
+    second: {fileID: 2100000, guid: d6e0b73292a7c90468550c90303df34e, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: SmallWindow
+    second: {fileID: 2100000, guid: b71e304cd8d37014096d1aef6dbfec7f, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: SwivlChair
+    second: {fileID: 2100000, guid: 38a2a59da41e5084cade256104b35aac, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: SwivlChair_BLACK
+    second: {fileID: 2100000, guid: 033dfe6653176074f9d39cea6e788d50, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Walls
+    second: {fileID: 2100000, guid: 35a41f9ac762e3045b106f7b1a8d390f, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: carpet
+    second: {fileID: 2100000, guid: f5a2995a2303aed4b8e12825742b0bb2, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: ceilingtiles
+    second: {fileID: 2100000, guid: 4def5d74226e63940a54e7ebf5deb58e, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: ceilingtiles_plain
+    second: {fileID: 2100000, guid: 850a853d5dee92c47a0556bb869f1ded, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: glass
+    second: {fileID: 2100000, guid: 752da610c677af447ab9e175570a2030, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: meetingTable
+    second: {fileID: 2100000, guid: 7ed36d1d475082a458bfea8d262f0647, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: shelving
+    second: {fileID: 2100000, guid: f342363b108014b48b7829b02ef85d31, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: woodFloor
+    second: {fileID: 2100000, guid: 6ecf8e72d01d73b49a48ba1f8e0c6fbd, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: woodenDesk
+    second: {fileID: 2100000, guid: 5199b28dd11e83748b0a9eeac1b016bd, type: 2}
   materials:
     materialImportMode: 2
     materialName: 0
