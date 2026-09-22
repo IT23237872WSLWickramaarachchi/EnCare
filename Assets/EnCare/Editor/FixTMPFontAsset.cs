@@ -8,7 +8,6 @@ namespace EnCare.Editor
     public static class FixTMPFontAsset
     {
         [MenuItem("Tools/EnCare/Fix TMP Font Serialization Warnings")]
-        [InitializeOnLoadMethod]
         public static void FixFontAssetSerialization()
         {
             string[] guids = AssetDatabase.FindAssets("t:TMP_FontAsset");
