@@ -4,8 +4,8 @@ namespace EnCare
 {
     /// <summary>
     /// Bridges CleanupMission UnityEvents to scene GameObjects.
-    /// Wire mission.onCompleted → OnSuccess() and mission.onFailed → OnFailure()
-    /// via the Inspector or the CleanupSceneBuilder editor tool.
+    /// Wire mission.onCompleted → OnSuccess() and mission.onFailed → OnFailure().
+    /// Ensures pass/fail panels pop up tracked to the player's view with lazy follow delay.
     /// </summary>
     public sealed class CleanupEventReceiver : MonoBehaviour
     {
@@ -14,12 +14,24 @@ namespace EnCare
 
         public void OnSuccess()
         {
-            if (successPanel != null) successPanel.SetActive(true);
+            if (successPanel != null)
+            {
+                var follow = successPanel.GetComponent<LazyFollowView>();
+                if (follow == null) follow = successPanel.AddComponent<LazyFollowView>();
+                successPanel.SetActive(true);
+                follow.SnapToView();
+            }
         }
 
         public void OnFailure()
         {
-            if (failurePanel != null) failurePanel.SetActive(true);
+            if (failurePanel != null)
+            {
+                var follow = failurePanel.GetComponent<LazyFollowView>();
+                if (follow == null) follow = failurePanel.AddComponent<LazyFollowView>();
+                failurePanel.SetActive(true);
+                follow.SnapToView();
+            }
         }
     }
 }

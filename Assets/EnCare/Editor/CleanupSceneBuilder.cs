@@ -57,6 +57,7 @@ public static class CleanupSceneBuilder
         var managerGO = new GameObject("CleanupManager");
         var mission   = managerGO.AddComponent<CleanupMission>();
         var spawner   = managerGO.AddComponent<RandomTrashSpawner>();
+        var grabDist  = managerGO.AddComponent<GrabDistanceSettings>();
         ConfigureMission(mission, spawner);
         ConfigureSpawner(spawner, trashPrefabs, spawnPoints);
 
@@ -85,6 +86,9 @@ public static class CleanupSceneBuilder
 
         // Wrist HUD (automatically parented to Left Controller)
         CreateWristHUD(mission, xrOrigin);
+
+        // Controller Help Tooltips (Gaze-activated for Left & Right Controllers)
+        SetupControllerHelpUIs(xrOrigin);
 
         // Basket in scene (mission wired post-instantiation)
         PlaceBasketInScene(basketPrefab, mission);
@@ -286,6 +290,7 @@ public static class CleanupSceneBuilder
         var collector = zoneGO.AddComponent<GarbageCollector>();
         var collSO    = new SerializedObject(collector);
         collSO.FindProperty("trashLayers").intValue = ~0; // All layers
+        collSO.FindProperty("itemsToKeep").intValue = 3;  // Keep 3 items inside basket
         collSO.ApplyModifiedPropertiesWithoutUndo();
 
         var prefab = PrefabUtility.SaveAsPrefabAsset(root, path);
@@ -451,20 +456,24 @@ public static class CleanupSceneBuilder
     // ─── Spawn Points ─────────────────────────────────────────────────────────
     static Transform[] CreateSpawnPoints(Transform parent)
     {
-        // Spread across desk surfaces (y≈0.85) and floor (y≈0.05)
-        // Reposition these once your real office environment is in place.
+        // 15 positions spread across desk surfaces (y≈0.85) and floor (y≈0.05)
         var positions = new Vector3[]
         {
             new Vector3(-2.5f, 0.85f, -2.2f),  // Desk_1 left
             new Vector3(-1.6f, 0.85f, -1.8f),  // Desk_1 right
+            new Vector3(-2.0f, 0.85f, -2.0f),  // Desk_1 centre
             new Vector3(-2.5f, 0.85f,  0.8f),  // Desk_2 left
             new Vector3(-1.6f, 0.85f,  1.2f),  // Desk_2 right
+            new Vector3(-2.0f, 0.85f,  1.0f),  // Desk_2 centre
             new Vector3( 1.5f, 0.85f, -2.2f),  // Desk_3 left
             new Vector3( 2.5f, 0.85f, -1.8f),  // Desk_3 right
+            new Vector3( 2.0f, 0.85f, -2.0f),  // Desk_3 centre
             new Vector3( 0.0f, 0.05f,  0.0f),  // Floor centre
             new Vector3(-1.0f, 0.05f,  2.5f),  // Floor back-left
             new Vector3( 1.0f, 0.05f, -0.5f),  // Floor mid-right
             new Vector3( 3.5f, 0.05f,  1.0f),  // Floor far-right
+            new Vector3(-3.5f, 0.05f, -1.0f),  // Floor far-left
+            new Vector3( 0.0f, 0.05f,  2.0f),  // Floor doorway
         };
 
         var points = new Transform[positions.Length];
@@ -501,6 +510,7 @@ public static class CleanupSceneBuilder
         for (int i = 0; i < spawnPoints.Length; i++)
             pts.GetArrayElementAtIndex(i).objectReferenceValue = spawnPoints[i];
 
+        so.FindProperty("spawnCount").intValue         = 10;
         so.FindProperty("overrideGlowColor").boolValue = true;
         so.FindProperty("levelGlowColor").colorValue   = new Color(0.1f, 1f, 0.8f, 1f);
         so.ApplyModifiedPropertiesWithoutUndo();
@@ -524,6 +534,7 @@ public static class CleanupSceneBuilder
     static GameObject CreateSuccessPanel()
     {
         var panel = CreateWorldCanvas("SuccessPanel", new Vector3(0f, 1.6f, 2f), new Vector2(600f, 380f));
+        panel.AddComponent<LazyFollowView>();
         panel.SetActive(false);
 
         AddPanelBg(panel, new Color(0.04f, 0.18f, 0.08f, 0.95f)); // dark green
@@ -542,6 +553,7 @@ public static class CleanupSceneBuilder
     static GameObject CreateFailurePanel(HandoverCutscene handover)
     {
         var panel = CreateWorldCanvas("FailurePanel", new Vector3(0f, 1.6f, 2f), new Vector2(600f, 380f));
+        panel.AddComponent<LazyFollowView>();
         panel.SetActive(false);
 
         AddPanelBg(panel, new Color(0.18f, 0.04f, 0.04f, 0.95f)); // dark red
@@ -652,6 +664,151 @@ public static class CleanupSceneBuilder
         hudSO.FindProperty("statusText").objectReferenceValue   = statusGO.GetComponent<TMP_Text>();
         hudSO.FindProperty("progressFill").objectReferenceValue = fillImg;
         hudSO.ApplyModifiedPropertiesWithoutUndo();
+    }
+
+    // ─── UI: Controller Help Tooltips ────────────────────────────────────────
+    static void SetupControllerHelpUIs(GameObject xrOrigin)
+    {
+        if (xrOrigin == null) return;
+
+        Transform leftCtrl = null;
+        Transform rightCtrl = null;
+        foreach (var t in xrOrigin.GetComponentsInChildren<Transform>(true))
+        {
+            if (t.name == "Left Controller" || t.name == "LeftHand Controller")
+                leftCtrl = t;
+            else if (t.name == "Right Controller" || t.name == "RightHand Controller")
+                rightCtrl = t;
+        }
+
+        if (leftCtrl != null)
+        {
+            CreateControllerHelpUI(leftCtrl, ControllerHelpUI.ControllerHand.Left);
+        }
+
+        if (rightCtrl != null)
+        {
+            CreateControllerHelpUI(rightCtrl, ControllerHelpUI.ControllerHand.Right);
+        }
+    }
+
+    public static GameObject CreateControllerHelpUI(Transform controllerTransform, ControllerHelpUI.ControllerHand hand)
+    {
+        if (controllerTransform == null) return null;
+        var existing = controllerTransform.GetComponentInChildren<ControllerHelpUI>(true);
+        if (existing != null) return existing.gameObject;
+
+        string name = hand == ControllerHelpUI.ControllerHand.Left ? "LeftControllerHelpUI" : "RightControllerHelpUI";
+        var canvasGO = new GameObject(name);
+        canvasGO.transform.SetParent(controllerTransform, false);
+
+        canvasGO.transform.localPosition = new Vector3(0f, 0.08f, 0.03f);
+        canvasGO.transform.localRotation = Quaternion.Euler(35f, 0f, 0f);
+        canvasGO.transform.localScale    = Vector3.one * 0.00035f;
+
+        var canvas = canvasGO.AddComponent<Canvas>();
+        canvas.renderMode = RenderMode.WorldSpace;
+        canvasGO.AddComponent<CanvasScaler>();
+        var canvasGroup = canvasGO.AddComponent<CanvasGroup>();
+
+        var rt = canvasGO.GetComponent<RectTransform>();
+        rt.sizeDelta = new Vector2(340f, 220f);
+
+        AddPanelBg(canvasGO, new Color(0.04f, 0.08f, 0.16f, 0.90f));
+
+        string title = hand == ControllerHelpUI.ControllerHand.Left ? "Left Hand" : "Right Hand";
+        string body = hand == ControllerHelpUI.ControllerHand.Left
+            ? "🕹️ <b>Thumbstick:</b> Walk / Move\n✊ <b>Grip:</b> Grab Trash & Basket\n👆 <b>Trigger:</b> Select / Interact"
+            : "🕹️ <b>Thumbstick:</b> Snap Turn / Teleport\n✊ <b>Grip:</b> Grab Trash & Basket\n🗑️ <b>Basket:</b> Release inside to score";
+
+        var titleGO = MakeTMP(canvasGO.transform, "TitleText", title,
+            new Vector2(0f, 75f), new Vector2(300f, 45f), 18, new Color(0.2f, 0.9f, 1f));
+
+        var bodyGO = MakeTMP(canvasGO.transform, "BodyText", body,
+            new Vector2(0f, -15f), new Vector2(300f, 130f), 13, Color.white);
+
+        var helpComp = canvasGO.AddComponent<ControllerHelpUI>();
+        var so = new SerializedObject(helpComp);
+        so.FindProperty("m_Hand").enumValueIndex = (int)hand;
+        so.FindProperty("m_TitleText").stringValue = title;
+        so.FindProperty("m_InstructionsText").stringValue = body;
+        so.FindProperty("m_CanvasGroup").objectReferenceValue = canvasGroup;
+        so.FindProperty("m_TitleTMP").objectReferenceValue = titleGO.GetComponent<TMP_Text>();
+        so.FindProperty("m_BodyTMP").objectReferenceValue = bodyGO.GetComponent<TMP_Text>();
+        so.ApplyModifiedPropertiesWithoutUndo();
+
+        return canvasGO;
+    }
+
+    [MenuItem("EnCare/\U0001F6E0  Setup VR Features in Active Scene", false, 2)]
+    public static void SetupActiveSceneFeatures()
+    {
+        var activeScene = EditorSceneManager.GetActiveScene();
+
+        // 1. Pass/Fail panels -> LazyFollowView
+        var success = GameObject.Find("SuccessPanel");
+        if (success != null && success.GetComponent<LazyFollowView>() == null)
+        {
+            success.AddComponent<LazyFollowView>();
+            Debug.Log("[EnCare] Added LazyFollowView to SuccessPanel.");
+        }
+
+        var failure = GameObject.Find("FailurePanel");
+        if (failure != null && failure.GetComponent<LazyFollowView>() == null)
+        {
+            failure.AddComponent<LazyFollowView>();
+            Debug.Log("[EnCare] Added LazyFollowView to FailurePanel.");
+        }
+
+        // 2. CleanupManager -> GrabDistanceSettings
+        var manager = GameObject.Find("CleanupManager");
+        if (manager != null)
+        {
+            if (manager.GetComponent<GrabDistanceSettings>() == null)
+            {
+                manager.AddComponent<GrabDistanceSettings>();
+                Debug.Log("[EnCare] Added GrabDistanceSettings to CleanupManager.");
+            }
+
+            var spawner = manager.GetComponent<RandomTrashSpawner>();
+            if (spawner != null)
+            {
+                var spSO = new SerializedObject(spawner);
+                spSO.FindProperty("spawnCount").intValue = 10;
+                spSO.ApplyModifiedPropertiesWithoutUndo();
+            }
+        }
+
+        // 3. XR Origin -> Controller Help UIs
+        var xrTransforms = Object.FindObjectsByType<Transform>(FindObjectsSortMode.None);
+        foreach (var t in xrTransforms)
+        {
+            if (t.name == "Left Controller" || t.name == "LeftHand Controller")
+            {
+                CreateControllerHelpUI(t, ControllerHelpUI.ControllerHand.Left);
+                Debug.Log("[EnCare] Added ControllerHelpUI to Left Controller.");
+            }
+            else if (t.name == "Right Controller" || t.name == "RightHand Controller")
+            {
+                CreateControllerHelpUI(t, ControllerHelpUI.ControllerHand.Right);
+                Debug.Log("[EnCare] Added ControllerHelpUI to Right Controller.");
+            }
+        }
+
+        // 4. Basket -> GarbageCollector itemsToKeep = 3
+        var collector = Object.FindFirstObjectByType<GarbageCollector>();
+        if (collector != null)
+        {
+            var collSO = new SerializedObject(collector);
+            collSO.FindProperty("itemsToKeep").intValue = 3;
+            collSO.ApplyModifiedPropertiesWithoutUndo();
+            Debug.Log("[EnCare] Configured GarbageCollector.itemsToKeep = 3.");
+        }
+
+        EditorSceneManager.MarkSceneDirty(activeScene);
+        EditorSceneManager.SaveScene(activeScene);
+        AssetDatabase.SaveAssets();
+        Debug.Log("[EnCare] VR Features successfully set up and saved in active scene: " + activeScene.name);
     }
 
     // ─── UI Helpers ──────────────────────────────────────────────────────────

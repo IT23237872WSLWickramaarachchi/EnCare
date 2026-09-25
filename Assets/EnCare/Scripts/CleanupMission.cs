@@ -60,7 +60,7 @@ namespace EnCare
                 !registered.Contains(item) || item.Consumed || !item.WasGrabbed || item.IsHeld)
                 return false;
             registered.Remove(item); // Compound colliders cannot count twice.
-            item.Consume();
+            item.MarkConsumed();
             Collected++;
             LastGrabbed = "";
             if (Collected >= targetCount)

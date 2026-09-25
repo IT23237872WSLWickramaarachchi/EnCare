@@ -124,6 +124,7 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 4294967295
   depositAudio: {fileID: 0}
+  itemsToKeep: 3
 --- !u!1 &409135125047585418
 GameObject:
   m_ObjectHideFlags: 0
