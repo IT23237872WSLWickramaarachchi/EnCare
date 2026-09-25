@@ -791,7 +791,6 @@ MonoBehaviour:
   - {fileID: 2804418496634146168, guid: a7836d5be4aafb24cb2e22adaabda73c, type: 3}
   - {fileID: 872192738290359666, guid: dc20f35abe77acc46b0cdf48cfe623c9, type: 3}
   - {fileID: 4640068886803189875, guid: 50ee9bc8f98d3974cbb39fbfae8fa074, type: 3}
-  - {fileID: 7402334051985192386, guid: d247118c0a354a640aef5bd04e887ab6, type: 3}
   spawnPoints:
   - {fileID: 740871961}
   - {fileID: 556696366}
@@ -808,7 +807,7 @@ MonoBehaviour:
   - {fileID: 1863319463}
   - {fileID: 2120889539}
   - {fileID: 1967545060}
-  spawnCount: 15
+  spawnCount: 10
   overrideGlowColor: 1
   levelGlowColor: {r: 0.2, g: 1, b: 0.35, a: 1}
 --- !u!114 &89927011
