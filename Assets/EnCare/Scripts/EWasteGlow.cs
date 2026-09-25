@@ -5,7 +5,8 @@ namespace EnCare.VR
 {
     /// <summary>
     /// Adds a customizable glow/highlight effect to an E-Waste item.
-    /// Can use Material Emission, Point Light, or both for clear visibility in VR.
+    /// Can use Material Emission, Point Light, or both for clear visibility in VR,
+    /// rhythmically pulsing opacity between 0 and 1.
     /// Works with all 3D models and multi-renderer prefabs.
     /// </summary>
     [DisallowMultipleComponent]
@@ -26,16 +27,20 @@ namespace EnCare.VR
 
         [Tooltip("Speed of the pulse cycle in seconds.")]
         [Range(0.2f, 5f)]
-        [SerializeField] private float m_PulseSpeed = 1.5f;
+        [SerializeField] private float m_PulseSpeed = 1.2f;
 
-        [Tooltip("Minimum intensity during pulsing (as a fraction of base intensity).")]
-        [Range(0.1f, 1f)]
-        [SerializeField] private float m_MinPulseFraction = 0.35f;
+        [Tooltip("Minimum opacity/intensity during pulsing (0 to 1).")]
+        [Range(0f, 1f)]
+        [SerializeField] private float m_MinPulseOpacity = 0.0f;
+
+        [Tooltip("Maximum opacity/intensity during pulsing (0 to 1).")]
+        [Range(0f, 1f)]
+        [SerializeField] private float m_MaxPulseOpacity = 1.0f;
 
         [Header("Reveal Animation")]
         [Tooltip("Duration in seconds for the glow to fade in from darkness when the object first appears. Set to 0 to skip.")]
         [Range(0f, 5f)]
-        [SerializeField] private float m_RevealDuration = 2.0f;
+        [SerializeField] private float m_RevealDuration = 1.5f;
 
         [Header("Light Glow (Optional)")]
         [Tooltip("Automatically create a subtle point light glow child if enabled.")]
@@ -143,13 +148,13 @@ namespace EnCare.VR
                 }
             }
 
-            // Pulse phase: slow breathing glow
+            // Pulse phase: rhythmic breathing between min (0) and max (1)
             float pulseFactor = 1f;
             if (m_EnablePulse)
             {
-                // Smooth sine wave between minFraction and 1.0 for slow breathing glow
-                float t = (Mathf.Sin(Time.time * m_PulseSpeed * Mathf.PI) + 1f) * 0.5f;
-                pulseFactor = Mathf.Lerp(m_MinPulseFraction, 1f, t);
+                float sine = (Mathf.Sin(Time.time * m_PulseSpeed * Mathf.PI * 2f) + 1f) * 0.5f;
+                float smoothSine = Mathf.SmoothStep(0f, 1f, sine);
+                pulseFactor = Mathf.Lerp(m_MinPulseOpacity, m_MaxPulseOpacity, smoothSine);
             }
 
             UpdateGlow(revealFactor * pulseFactor);
@@ -205,3 +210,4 @@ namespace EnCare.VR
         }
     }
 }
+

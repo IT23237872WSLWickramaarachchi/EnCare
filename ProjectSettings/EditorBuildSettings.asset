@@ -6,6 +6,9 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
+    path: Assets/Scenes/Lvl_Backyard.unity
+    guid: 912c6c49f3f6e1642bd7663270157ba1
+  - enabled: 1
     path: Assets/Scenes/CleanupScene.unity
     guid: 9634fd5e5d2378a4f97ed811ab8d1b10
   - enabled: 1

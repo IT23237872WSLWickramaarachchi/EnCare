@@ -363,11 +363,19 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 67fc9b9f640d00a438d9ac26d3183191, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EnCare.TrashGlow
-  outlineMaterial: {fileID: 2100000, guid: b4c4eac5ba2305e4499b99bf57091f70, type: 2}
-  sourceRenderers:
-  - {fileID: 4200416486047350804}
   glowColor: {r: 0.1, g: 1, b: 0.8, a: 1}
   intensity: 3
+  enablePulse: 1
+  pulseSpeed: 1.2
+  minPulseOpacity: 0
+  maxPulseOpacity: 1
+  revealDuration: 1.5
+  usePointLight: 1
+  lightRange: 0.8
+  lightIntensity: 1
+  outlineMaterial: {fileID: 2100000, guid: 0c0ccedeaafa8c046934b26ff8fffbe5, type: 2}
+  sourceRenderers:
+  - {fileID: 4200416486047350804}
   width: 0.006
   smoothOutlineNormals: 0
 --- !u!1 &7958935516098953659

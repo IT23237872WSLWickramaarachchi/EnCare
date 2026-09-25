@@ -4,8 +4,8 @@ namespace EnCare
 {
     /// <summary>
     /// Smoothly positions a UI canvas in front of the VR player's view with a soft deadzone,
-    /// warmup delay, and ease-in-out repositioning. Prevents constant view obstruction while
-    /// keeping the panel accessible. Includes a scale-pop animation on first appear.
+    /// warmup delay, and silky-smooth ease-in-out repositioning. Prevents constant view obstruction
+    /// while keeping the panel accessible. Includes a gentle scale animation on first appear.
     /// Ideal for Pass/Fail and mission conclusion panels.
     /// </summary>
     [DisallowMultipleComponent]
@@ -27,31 +27,31 @@ namespace EnCare
         [Header("Reposition Easing")]
         [Tooltip("Soft deadzone angle (in degrees). The UI will only begin catching up when the head turns beyond this threshold.")]
         [Range(5f, 45f)]
-        [SerializeField] private float m_DeadzoneAngle = 18f;
+        [SerializeField] private float m_DeadzoneAngle = 20f;
 
         [Tooltip("Tolerance for camera distance before repositioning activates.")]
         [Range(0.1f, 1f)]
         [SerializeField] private float m_DistanceTolerance = 0.35f;
 
-        [Tooltip("Warm-up delay in seconds before the UI starts moving after leaving the deadzone. Creates an ease-in feel.")]
-        [Range(0f, 1f)]
-        [SerializeField] private float m_WarmupDelay = 0.25f;
+        [Tooltip("Warm-up delay in seconds before the UI starts moving after leaving the deadzone. Creates a gentle ease-in feel.")]
+        [Range(0f, 1.5f)]
+        [SerializeField] private float m_WarmupDelay = 0.35f;
 
-        [Tooltip("Base ease duration used to modulate the SmoothDamp damping time. Higher values = slower, more pronounced easing.")]
-        [Range(0.2f, 2f)]
-        [SerializeField] private float m_EaseDuration = 0.8f;
+        [Tooltip("Base ease duration used for smooth damping. Higher values = slower, gentler ease-in-out transition.")]
+        [Range(0.4f, 3f)]
+        [SerializeField] private float m_EaseDuration = 1.2f;
 
         [Tooltip("Rotation interpolation speed to face the player.")]
-        [Range(1f, 15f)]
-        [SerializeField] private float m_RotationSpeed = 4.5f;
+        [Range(0.5f, 10f)]
+        [SerializeField] private float m_RotationSpeed = 2.5f;
 
         [Header("Scale Animation")]
-        [Tooltip("If true, plays a scale-pop animation when the panel first appears via SnapToView.")]
+        [Tooltip("If true, plays a smooth scale-in animation when the panel first appears via SnapToView.")]
         [SerializeField] private bool m_EnableScaleAnim = true;
 
-        [Tooltip("Duration of the scale-pop animation on appear.")]
-        [Range(0.1f, 1.5f)]
-        [SerializeField] private float m_ScaleAnimDuration = 0.45f;
+        [Tooltip("Duration of the scale animation on appear.")]
+        [Range(0.2f, 2f)]
+        [SerializeField] private float m_ScaleAnimDuration = 0.65f;
 
         [Header("Behavior")]
         [Tooltip("If true, snaps instantly into position when enabled.")]
@@ -108,11 +108,20 @@ namespace EnCare
             {
                 m_TargetCamera = Camera.main;
             }
+            if (m_TargetCamera == null)
+            {
+                var camObj = GameObject.FindWithTag("MainCamera");
+                if (camObj != null) m_TargetCamera = camObj.GetComponent<Camera>();
+            }
+            if (m_TargetCamera == null)
+            {
+                m_TargetCamera = Object.FindFirstObjectByType<Camera>();
+            }
         }
 
         /// <summary>
         /// Immediately snaps the UI directly in front of the camera view,
-        /// with an optional scale-pop animation.
+        /// with an optional smooth scale animation.
         /// </summary>
         public void SnapToView()
         {
@@ -129,7 +138,7 @@ namespace EnCare
             m_IsRepositioning = false;
             m_WarmupTimer = 0f;
 
-            // Scale-pop animation
+            // Scale animation
             if (m_EnableScaleAnim)
             {
                 m_ScaleAnimPlaying = true;
@@ -150,12 +159,13 @@ namespace EnCare
                 if (m_TargetCamera == null) return;
             }
 
-            // ─── Scale-Pop Animation ───
+            // ─── Scale Animation ───
             if (m_ScaleAnimPlaying)
             {
                 m_ScaleTimer += Time.deltaTime;
                 float t = Mathf.Clamp01(m_ScaleTimer / m_ScaleAnimDuration);
-                float eased = EaseOutBack(t);
+                // Smooth quintic ease-out
+                float eased = 1f - Mathf.Pow(1f - t, 3f);
                 transform.localScale = m_OriginalScale * eased;
                 if (t >= 1f)
                 {
@@ -184,7 +194,7 @@ namespace EnCare
                     m_WarmupTimer = 0f;
                 }
             }
-            else if (angleFromCenter < m_DeadzoneAngle * 0.4f && !outsideDistance)
+            else if (angleFromCenter < m_DeadzoneAngle * 0.35f && !outsideDistance)
             {
                 // Returned close to centre, reset reposition state
                 m_IsRepositioning = false;
@@ -197,44 +207,36 @@ namespace EnCare
                 m_WarmupTimer += Time.deltaTime;
                 if (m_WarmupTimer < m_WarmupDelay) return;
 
-                // Ramp factor: 0→1 over half the ease duration after warmup
+                // Ease-in ramp factor over the ease duration
                 float elapsed = m_WarmupTimer - m_WarmupDelay;
-                float rampUp = Mathf.Clamp01(elapsed / (m_EaseDuration * 0.5f));
-                float easedRamp = SmoothStepEaseInOut(rampUp);
+                float rampUp = Mathf.Clamp01(elapsed / (m_EaseDuration * 0.8f));
+                float easedRamp = SmootherStep(rampUp);
 
-                // Modulate damping time: high at start (slow), decreasing (faster).
-                // SmoothDamp naturally ease-outs as we approach the target.
-                float dynamicDampTime = Mathf.Lerp(m_EaseDuration * 2f, m_EaseDuration * 0.25f, easedRamp);
+                // Dynamic damping time: starts gentle (high damping) and settles smooth
+                float dynamicSmoothTime = Mathf.Lerp(m_EaseDuration * 1.5f, m_EaseDuration * 0.6f, easedRamp);
 
                 Vector3 desiredPos = camPos + camForward * m_Distance + Vector3.up * m_HeightOffset;
                 transform.position = Vector3.SmoothDamp(
-                    transform.position, desiredPos, ref m_CurrentVelocity, dynamicDampTime);
+                    transform.position, desiredPos, ref m_CurrentVelocity, dynamicSmoothTime);
 
-                // Smoothly rotate to face the camera with eased speed
+                // Smoothly rotate to face the camera with gentle easing
                 Vector3 lookDir = transform.position - camPos;
                 if (lookDir.sqrMagnitude > 0.001f)
                 {
                     Quaternion desiredRot = Quaternion.LookRotation(lookDir);
-                    float rotSpeed = Mathf.Lerp(1f, m_RotationSpeed, easedRamp);
+                    float rotSpeed = Mathf.Lerp(1.0f, m_RotationSpeed, easedRamp);
                     transform.rotation = Quaternion.Slerp(
                         transform.rotation, desiredRot, Time.deltaTime * rotSpeed);
                 }
             }
         }
 
-        /// <summary>Hermite smoothstep: ease-in-out curve.</summary>
-        static float SmoothStepEaseInOut(float t)
+        /// <summary>Perlin's SmootherStep (quintic ease-in-out curve).</summary>
+        static float SmootherStep(float t)
         {
             t = Mathf.Clamp01(t);
-            return t * t * (3f - 2f * t);
-        }
-
-        /// <summary>Ease-out with slight overshoot for a bouncy "pop" feel.</summary>
-        static float EaseOutBack(float t)
-        {
-            const float c1 = 1.70158f;
-            const float c3 = c1 + 1f;
-            return 1f + c3 * Mathf.Pow(t - 1f, 3f) + c1 * Mathf.Pow(t - 1f, 2f);
+            return t * t * t * (t * (6f * t - 15f) + 10f);
         }
     }
 }
+

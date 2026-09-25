@@ -7,7 +7,7 @@ Shader "EnCare/TrashOutlineURP"
     }
     SubShader
     {
-        Tags { "RenderPipeline"="UniversalPipeline" "RenderType"="Opaque" "Queue"="Geometry+10" }
+        Tags { "RenderPipeline"="UniversalPipeline" "RenderType"="Transparent" "Queue"="Transparent" }
         Pass
         {
             Name "Outline"
@@ -15,6 +15,7 @@ Shader "EnCare/TrashOutlineURP"
             Cull Front
             ZWrite Off
             ZTest LEqual
+            Blend SrcAlpha OneMinusSrcAlpha
             HLSLPROGRAM
             #pragma vertex Vert
             #pragma fragment Frag
@@ -48,9 +49,10 @@ Shader "EnCare/TrashOutlineURP"
             half4 Frag(Varyings input) : SV_Target
             {
                 UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
-                return half4(_OutlineColor.rgb, 1);
+                return _OutlineColor;
             }
             ENDHLSL
         }
     }
 }
+

@@ -6,8 +6,9 @@ namespace EnCare
 {
     /// <summary>
     /// Adds a glowing highlight to trash items.
-    /// Supports material emission property blocks and optional point lights,
-    /// working seamlessly on both primitive shapes and complex 3D meshes with slow pulsing.
+    /// Supports material emission property blocks, inverted-hull mesh outlines, and optional point lights,
+    /// rhythmically pulsing opacity between 0 and 1 to draw the player's attention.
+    /// Works seamlessly on both primitive shapes and complex multi-part 3D models.
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class TrashGlow : MonoBehaviour
@@ -25,16 +26,20 @@ namespace EnCare
 
         [Tooltip("Speed of the pulse cycle in seconds.")]
         [Range(0.2f, 5f)]
-        [SerializeField] private float pulseSpeed = 1.5f;
+        [SerializeField] private float pulseSpeed = 1.2f;
 
-        [Tooltip("Minimum intensity during pulsing (fraction of base intensity).")]
-        [Range(0.1f, 1f)]
-        [SerializeField] private float minPulseFraction = 0.35f;
+        [Tooltip("Minimum opacity/intensity during pulsing (0 to 1).")]
+        [Range(0f, 1f)]
+        [SerializeField] private float minPulseOpacity = 0.0f;
+
+        [Tooltip("Maximum opacity/intensity during pulsing (0 to 1).")]
+        [Range(0f, 1f)]
+        [SerializeField] private float maxPulseOpacity = 1.0f;
 
         [Header("Reveal Animation")]
         [Tooltip("Duration in seconds for the glow to fade in from darkness when the object first appears. Set to 0 to skip.")]
         [Range(0f, 5f)]
-        [SerializeField] private float revealDuration = 2.0f;
+        [SerializeField] private float revealDuration = 1.5f;
 
         [Header("Light Glow (Optional)")]
         [Tooltip("Automatically create a subtle point light glow child if enabled.")]
@@ -46,8 +51,8 @@ namespace EnCare
         [Range(0.1f, 5f)]
         [SerializeField] private float lightIntensity = 1.0f;
 
-        [Header("Legacy Mesh Outline (Optional)")]
-        [Tooltip("Material using EnCare/TrashOutlineURP (optional fallback).")]
+        [Header("Mesh Outline")]
+        [Tooltip("Material using EnCare/TrashOutlineURP.")]
         [SerializeField] private Material outlineMaterial;
         [SerializeField] private MeshRenderer[] sourceRenderers = new MeshRenderer[0];
         [Range(0.001f, 0.03f)] [SerializeField] private float width = 0.006f;
@@ -57,6 +62,8 @@ namespace EnCare
         private MaterialPropertyBlock propertyBlock;
         private Light pointLight;
         private static readonly int EmissionColorPropertyId = Shader.PropertyToID("_EmissionColor");
+        private static readonly int OutlineColorPropertyId = Shader.PropertyToID("_OutlineColor");
+        private static readonly int OutlineWidthPropertyId = Shader.PropertyToID("_OutlineWidth");
 
         private readonly List<GameObject> shells = new List<GameObject>();
         private readonly List<Mesh> meshes = new List<Mesh>();
@@ -72,7 +79,6 @@ namespace EnCare
             {
                 glowColor = value;
                 UpdateEmission(1f);
-                if (runtimeMaterial != null) ApplyOutlineColor();
             }
         }
 
@@ -81,6 +87,7 @@ namespace EnCare
             propertyBlock = new MaterialPropertyBlock();
             InitializeRenderers();
             SetupPointLight();
+            SetupMeshOutlines();
 
             // Start dark if reveal animation is active
             if (revealDuration > 0f)
@@ -103,7 +110,7 @@ namespace EnCare
             // Enable emission keyword on all child materials so standard and URP Lit materials glow
             foreach (var rend in allRenderers)
             {
-                if (rend == null) continue;
+                if (rend == null || rend.gameObject.name == "EnCare Outline") continue;
                 foreach (var mat in rend.materials)
                 {
                     if (mat != null)
@@ -130,24 +137,55 @@ namespace EnCare
             pointLight.shadows = LightShadows.None;
         }
 
-        private void Start()
+        private void SetupMeshOutlines()
         {
-            // Optional legacy outline if outlineMaterial is assigned and has valid source renderers
-            if (outlineMaterial != null && sourceRenderers != null && sourceRenderers.Length > 0)
+            // If runtime material not created, create one
+            if (runtimeMaterial == null)
             {
-                SetupLegacyOutline();
+                if (outlineMaterial != null)
+                {
+                    runtimeMaterial = new Material(outlineMaterial);
+                }
+                else
+                {
+                    Shader shader = Shader.Find("EnCare/TrashOutlineURP");
+                    if (shader == null) shader = Shader.Find("Universal Render Pipeline/Unlit");
+                    if (shader != null)
+                    {
+                        runtimeMaterial = new Material(shader);
+                    }
+                }
             }
-        }
 
-        private void SetupLegacyOutline()
-        {
-            runtimeMaterial = new Material(outlineMaterial);
-            ApplyOutlineColor();
-            foreach (MeshRenderer source in sourceRenderers)
+            if (runtimeMaterial == null) return;
+
+            // Find all mesh filters in children if sourceRenderers was not explicitly configured
+            var targetFilters = new List<(MeshFilter filter, Renderer rend)>();
+            if (sourceRenderers != null && sourceRenderers.Length > 0)
             {
-                if (source == null) continue;
-                MeshFilter filter = source.GetComponent<MeshFilter>();
-                if (filter == null || filter.sharedMesh == null) continue;
+                foreach (var sr in sourceRenderers)
+                {
+                    if (sr == null) continue;
+                    var mf = sr.GetComponent<MeshFilter>();
+                    if (mf != null && mf.sharedMesh != null)
+                        targetFilters.Add((mf, sr));
+                }
+            }
+            else
+            {
+                var filters = GetComponentsInChildren<MeshFilter>(true);
+                foreach (var mf in filters)
+                {
+                    if (mf == null || mf.sharedMesh == null) continue;
+                    if (mf.gameObject.name == "EnCare Outline") continue;
+                    var rend = mf.GetComponent<Renderer>();
+                    if (rend != null)
+                        targetFilters.Add((mf, rend));
+                }
+            }
+
+            foreach (var (filter, sourceRend) in targetFilters)
+            {
                 Mesh mesh = filter.sharedMesh;
                 if (smoothOutlineNormals && mesh.isReadable)
                 {
@@ -155,16 +193,24 @@ namespace EnCare
                     SmoothNormals(mesh);
                     meshes.Add(mesh);
                 }
+
                 var shell = new GameObject("EnCare Outline");
-                shell.layer = source.gameObject.layer;
-                shell.transform.SetParent(source.transform, false);
-                shell.AddComponent<MeshFilter>().sharedMesh = mesh;
-                MeshRenderer renderer = shell.AddComponent<MeshRenderer>();
+                shell.layer = sourceRend.gameObject.layer;
+                shell.transform.SetParent(filter.transform, false);
+                shell.transform.localPosition = Vector3.zero;
+                shell.transform.localRotation = Quaternion.identity;
+                shell.transform.localScale = Vector3.one;
+
+                var shellFilter = shell.AddComponent<MeshFilter>();
+                shellFilter.sharedMesh = mesh;
+
+                var renderer = shell.AddComponent<MeshRenderer>();
                 var materials = new Material[mesh.subMeshCount];
                 for (int i = 0; i < materials.Length; i++) materials[i] = runtimeMaterial;
                 renderer.sharedMaterials = materials;
                 renderer.shadowCastingMode = ShadowCastingMode.Off;
                 renderer.receiveShadows = false;
+
                 Bounds bounds = mesh.bounds;
                 bounds.Expand(width * 4f);
                 renderer.localBounds = bounds;
@@ -189,34 +235,54 @@ namespace EnCare
                 }
             }
 
-            // Pulse phase: slow breathing glow
-            float pulseFactor = 1f;
+            // Pulse phase: opacity oscillating rhythmically between minPulseOpacity (0) and maxPulseOpacity (1)
+            float pulseOpacity = 1f;
             if (enablePulse)
             {
-                float t = (Mathf.Sin(Time.time * pulseSpeed * Mathf.PI) + 1f) * 0.5f;
-                pulseFactor = Mathf.Lerp(minPulseFraction, 1f, t);
+                // Sine wave normalized to [0, 1]
+                float sine = (Mathf.Sin(Time.time * pulseSpeed * Mathf.PI * 2f) + 1f) * 0.5f;
+                // Smooth Hermite interpolation for pleasing pulse rhythm
+                float smoothSine = Mathf.SmoothStep(0f, 1f, sine);
+                pulseOpacity = Mathf.Lerp(minPulseOpacity, maxPulseOpacity, smoothSine);
             }
 
-            UpdateEmission(revealFactor * pulseFactor);
+            float currentFactor = revealFactor * pulseOpacity;
+            UpdateEmission(currentFactor);
         }
 
         private void UpdateEmission(float factor)
         {
-            Color activeColor = glowColor * (intensity * factor);
+            // Color with alpha/opacity for transparency blending
+            Color activeOutlineColor = new Color(
+                glowColor.r * intensity,
+                glowColor.g * intensity,
+                glowColor.b * intensity,
+                Mathf.Clamp01(factor)
+            );
 
+            // Update Outline Material
+            if (runtimeMaterial != null)
+            {
+                runtimeMaterial.SetColor(OutlineColorPropertyId, activeOutlineColor);
+                runtimeMaterial.SetFloat(OutlineWidthPropertyId, width);
+            }
+
+            // Update Child Material Emission
+            Color activeEmissionColor = glowColor * (intensity * factor);
             if (allRenderers != null)
             {
                 for (int i = 0; i < allRenderers.Length; i++)
                 {
                     var rend = allRenderers[i];
-                    if (rend == null) continue;
+                    if (rend == null || rend.gameObject.name == "EnCare Outline") continue;
 
                     rend.GetPropertyBlock(propertyBlock);
-                    propertyBlock.SetColor(EmissionColorPropertyId, activeColor);
+                    propertyBlock.SetColor(EmissionColorPropertyId, activeEmissionColor);
                     rend.SetPropertyBlock(propertyBlock);
                 }
             }
 
+            // Update Light intensity
             if (pointLight != null && usePointLight)
             {
                 pointLight.color = glowColor;
@@ -226,7 +292,8 @@ namespace EnCare
 
         public void SetColor(Color color)
         {
-            GlowColor = color;
+            glowColor = color;
+            UpdateEmission(1f);
         }
 
         public void SetGlowEnabled(bool enabledState)
@@ -247,20 +314,13 @@ namespace EnCare
                 for (int i = 0; i < allRenderers.Length; i++)
                 {
                     var rend = allRenderers[i];
-                    if (rend == null) continue;
+                    if (rend == null || rend.gameObject.name == "EnCare Outline") continue;
 
                     rend.GetPropertyBlock(propertyBlock);
                     propertyBlock.SetColor(EmissionColorPropertyId, Color.black);
                     rend.SetPropertyBlock(propertyBlock);
                 }
             }
-        }
-
-        private void ApplyOutlineColor()
-        {
-            if (runtimeMaterial == null) return;
-            runtimeMaterial.SetColor("_OutlineColor", glowColor * intensity);
-            runtimeMaterial.SetFloat("_OutlineWidth", width);
         }
 
         private static void SmoothNormals(Mesh mesh)
@@ -298,3 +358,4 @@ namespace EnCare
         }
     }
 }
+

@@ -6,8 +6,8 @@ namespace EnCare
 {
     /// <summary>
     /// Displays contextual controller instructions and control labels in VR.
-    /// Automatically reveals itself only when the player looks directly at the controller,
-    /// and smoothly fades out when looking away.
+    /// Automatically reveals itself smoothly when the player looks at the controller,
+    /// and fades out when looking away.
     /// </summary>
     [DisallowMultipleComponent]
     public class ControllerHelpUI : MonoBehaviour
@@ -24,33 +24,26 @@ namespace EnCare
         [Tooltip("The camera representing the player's head. Defaults to Camera.main.")]
         [SerializeField] private Camera m_PlayerCamera;
 
-        [Tooltip("Dot product threshold (0.0 to 1.0) for gaze detection. Higher requires looking more directly at the controller.")]
-        [Range(0.6f, 0.98f)]
-        [SerializeField] private float m_FacingThreshold = 0.80f;
+        [Tooltip("Dot product threshold (0.0 to 1.0) for gaze detection. 0.65 = ~49 degree cone.")]
+        [Range(0.4f, 0.95f)]
+        [SerializeField] private float m_FacingThreshold = 0.65f;
 
         [Tooltip("Hysteresis offset to prevent flickering at the threshold edge.")]
         [Range(0.01f, 0.15f)]
-        [SerializeField] private float m_Hysteresis = 0.06f;
+        [SerializeField] private float m_Hysteresis = 0.08f;
 
         [Tooltip("Minimum distance from head in meters for tooltip to show.")]
-        [SerializeField] private float m_MinDistance = 0.15f;
+        [SerializeField] private float m_MinDistance = 0.10f;
 
         [Tooltip("Maximum distance from head in meters for tooltip to show.")]
-        [SerializeField] private float m_MaxDistance = 1.10f;
+        [SerializeField] private float m_MaxDistance = 1.40f;
 
         [Tooltip("Speed of fade in / fade out.")]
-        [SerializeField] private float m_FadeSpeed = 6.0f;
+        [SerializeField] private float m_FadeSpeed = 4.0f;
 
         [Tooltip("Delay in seconds before the tooltip starts appearing after looking at the controller.")]
-        [Range(0f, 2f)]
-        [SerializeField] private float m_PopupDelay = 0.4f;
-
-        [Header("Movement Suppression")]
-        [Tooltip("Distance threshold for rapid controller movement that suppresses the tooltip.")]
-        [SerializeField] private float m_LargeMovementThreshold = 0.05f;
-
-        [Tooltip("Cooldown time in seconds after rapid movement before the tooltip can reappear.")]
-        [SerializeField] private float m_MovementCooldown = 0.3f;
+        [Range(0f, 1.5f)]
+        [SerializeField] private float m_PopupDelay = 0.25f;
 
         [Header("UI References")]
         [SerializeField] private CanvasGroup m_CanvasGroup;
@@ -59,16 +52,12 @@ namespace EnCare
 
         private bool m_IsLookingAt;
         private float m_GazeTimer;
-        private float m_MovementCooldownTimer;
-        private Vector3 m_LastControllerPos;
 
         private void Awake()
         {
             EnsureCamera();
             EnsureUI();
             ApplyPresetContent();
-            m_LastControllerPos = transform.position;
-            m_MovementCooldownTimer = m_MovementCooldown; // Start ready
 
             if (m_CanvasGroup != null)
             {
@@ -82,6 +71,15 @@ namespace EnCare
             if (m_PlayerCamera == null)
             {
                 m_PlayerCamera = Camera.main;
+            }
+            if (m_PlayerCamera == null)
+            {
+                var camObj = GameObject.FindWithTag("MainCamera");
+                if (camObj != null) m_PlayerCamera = camObj.GetComponent<Camera>();
+            }
+            if (m_PlayerCamera == null)
+            {
+                m_PlayerCamera = Object.FindFirstObjectByType<Camera>();
             }
         }
 
@@ -122,50 +120,32 @@ namespace EnCare
                 if (m_PlayerCamera == null) return;
             }
 
-            // ─── Large movement suppression (controller moving fast) ───
-            float posDelta = Vector3.Distance(transform.position, m_LastControllerPos);
-            if (posDelta > m_LargeMovementThreshold)
-            {
-                m_MovementCooldownTimer = 0f;
-                m_IsLookingAt = false;
-                m_GazeTimer = 0f;
-            }
-            m_MovementCooldownTimer += Time.deltaTime;
-            m_LastControllerPos = transform.position;
+            // ─── Gaze detection ───
+            Vector3 camPos = m_PlayerCamera.transform.position;
+            Vector3 toController = transform.position - camPos;
+            float dist = toController.magnitude;
 
-            if (m_MovementCooldownTimer < m_MovementCooldown)
+            bool inRange = dist >= m_MinDistance && dist <= m_MaxDistance;
+            if (inRange)
             {
-                m_IsLookingAt = false;
-                m_GazeTimer = 0f;
-            }
-            else
-            {
-                // ─── Gaze detection ───
-                Vector3 camPos = m_PlayerCamera.transform.position;
-                Vector3 toController = transform.position - camPos;
-                float dist = toController.magnitude;
+                Vector3 toControllerDir = toController / dist;
+                float dot = Vector3.Dot(m_PlayerCamera.transform.forward, toControllerDir);
 
-                if (dist < m_MinDistance || dist > m_MaxDistance)
+                // Gaze evaluation with hysteresis
+                if (!m_IsLookingAt && dot >= m_FacingThreshold)
+                {
+                    m_IsLookingAt = true;
+                }
+                else if (m_IsLookingAt && dot < (m_FacingThreshold - m_Hysteresis))
                 {
                     m_IsLookingAt = false;
                     m_GazeTimer = 0f;
                 }
-                else
-                {
-                    Vector3 toControllerDir = toController / dist;
-                    float dot = Vector3.Dot(m_PlayerCamera.transform.forward, toControllerDir);
-
-                    // Gaze evaluation with hysteresis
-                    if (!m_IsLookingAt && dot >= m_FacingThreshold)
-                    {
-                        m_IsLookingAt = true;
-                    }
-                    else if (m_IsLookingAt && dot < (m_FacingThreshold - m_Hysteresis))
-                    {
-                        m_IsLookingAt = false;
-                        m_GazeTimer = 0f;
-                    }
-                }
+            }
+            else
+            {
+                m_IsLookingAt = false;
+                m_GazeTimer = 0f;
             }
 
             // ─── Popup delay ───
@@ -207,14 +187,16 @@ namespace EnCare
             var transforms = Object.FindObjectsByType<Transform>(FindObjectsSortMode.None);
             foreach (var t in transforms)
             {
-                if (t.name == "Left Controller" || t.name == "LeftHand Controller")
+                if (t == null) continue;
+                string lower = t.name.ToLowerInvariant();
+                if (lower.Contains("left") && (lower.Contains("controller") || lower.Contains("hand")))
                 {
                     if (t.GetComponentInChildren<ControllerHelpUI>(true) == null)
                     {
                         CreateHelpUI(t, ControllerHand.Left);
                     }
                 }
-                else if (t.name == "Right Controller" || t.name == "RightHand Controller")
+                else if (lower.Contains("right") && (lower.Contains("controller") || lower.Contains("hand")))
                 {
                     if (t.GetComponentInChildren<ControllerHelpUI>(true) == null)
                     {
@@ -321,3 +303,4 @@ namespace EnCare
         }
     }
 }
+

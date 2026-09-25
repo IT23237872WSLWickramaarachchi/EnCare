@@ -6,6 +6,7 @@ using UnityEditor.Events;
 using UnityEditor.SceneManagement;
 using TMPro;
 using EnCare;
+using EnCare.Editor;
 using UnityEngine.XR.Interaction.Toolkit;
 using UnityEngine.XR.Interaction.Toolkit.Interactables;
 
@@ -19,6 +20,7 @@ public static class CleanupSceneBuilder
     const string k_ScenePath  = "Assets/Scenes/CleanupScene.unity";
     const string k_PrefabRoot = "Assets/EnCare/Prefabs";
     const string k_TrashRoot  = "Assets/EnCare/Prefabs/Trash";
+    const string k_BackyardTrashRoot = "Assets/EnCare/Prefabs/BackyardTrash";
     const string k_MatRoot    = "Assets/EnCare/Materials";
     const string k_XRPrefabRig      = "Assets/Samples/XR Interaction Toolkit/3.3.0/Starter Assets/Prefabs/XR Origin (XR Rig).prefab";
     const string k_XRPrefabTemplate = "Assets/VRTemplateAssets/Prefabs/Setup/Complete XR Origin Set Up Variant.prefab";
@@ -59,7 +61,7 @@ public static class CleanupSceneBuilder
         var spawner   = managerGO.AddComponent<RandomTrashSpawner>();
         var grabDist  = managerGO.AddComponent<GrabDistanceSettings>();
         ConfigureMission(mission, spawner);
-        ConfigureSpawner(spawner, trashPrefabs, spawnPoints);
+        ConfigureSpawner(spawner, trashPrefabs, spawnPoints, new Color(0.1f, 1f, 0.8f, 1f));
 
         // Event bridge
         var receiverGO = new GameObject("CleanupEventReceiver");
@@ -135,10 +137,37 @@ public static class CleanupSceneBuilder
         return mat;
     }
 
-    // ─── Trash Prefabs ───────────────────────────────────────────────────────
+    static Material GetOrCreateBackyardOutlineMaterial(Color glowColor)
+    {
+        const string path = "Assets/EnCare/Materials/TrashOutline_Backyard_Mat.mat";
+        var existing = AssetDatabase.LoadAssetAtPath<Material>(path);
+        if (existing != null)
+        {
+            if (existing.HasProperty("_OutlineColor"))
+                existing.SetColor("_OutlineColor", new Color(glowColor.r * 3f, glowColor.g * 3f, glowColor.b * 3f, 1f));
+            return existing;
+        }
+
+        var shader = Shader.Find("EnCare/TrashOutlineURP");
+        if (shader == null)
+        {
+            shader = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard");
+        }
+
+        var mat = new Material(shader);
+        if (mat.HasProperty("_OutlineColor"))
+            mat.SetColor("_OutlineColor", new Color(glowColor.r * 3f, glowColor.g * 3f, glowColor.b * 3f, 1f));
+        if (mat.HasProperty("_OutlineWidth"))
+            mat.SetFloat("_OutlineWidth", 0.006f);
+
+        AssetDatabase.CreateAsset(mat, path);
+        AssetDatabase.SaveAssets();
+        return mat;
+    }
+
+    // ─── Trash Prefabs (Office E-Waste) ──────────────────────────────────────
     static GameObject[] CreateTrashPrefabs(Material outlineMat)
     {
-        // (prefabName, displayName, modelScale, modelColor)
         var defs = new (string name, string display, Vector3 scale, Color color)[]
         {
             ("Trash_CircuitBoard", "Circuit Board", new Vector3(0.20f, 0.02f, 0.15f), new Color(0.10f, 0.40f, 0.10f)),
@@ -149,16 +178,38 @@ public static class CleanupSceneBuilder
         };
 
         var prefabs = new GameObject[defs.Length];
+        Color cyanGlow = new Color(0.1f, 1f, 0.8f, 1f);
         for (int i = 0; i < defs.Length; i++)
-            prefabs[i] = CreateSingleTrashPrefab(defs[i].name, defs[i].display,
-                                                  defs[i].scale, defs[i].color, outlineMat);
+            prefabs[i] = CreateSingleTrashPrefab(k_TrashRoot, defs[i].name, defs[i].display,
+                                                  defs[i].scale, defs[i].color, outlineMat, cyanGlow);
         return prefabs;
     }
 
-    static GameObject CreateSingleTrashPrefab(string prefabName, string displayName,
-                                               Vector3 modelScale, Color modelColor, Material outlineMat)
+    // ─── Trash Prefabs (Backyard Clinical Waste) ────────────────────────────
+    static GameObject[] CreateClinicalTrashPrefabs(Material outlineMat, Color glowColor)
     {
-        string path = $"{k_TrashRoot}/{prefabName}.prefab";
+        EnsureDir(k_BackyardTrashRoot);
+        var defs = new (string name, string display, Vector3 scale, Color color)[]
+        {
+            ("Trash_BiohazardBin",     "Biohazard Sharps Bin", new Vector3(0.18f, 0.24f, 0.14f), new Color(0.96f, 0.78f, 0.08f)), // Yellow biohazard bin
+            ("Trash_MedicineBottle",   "Medicine Bottle",      new Vector3(0.08f, 0.15f, 0.08f), new Color(0.78f, 0.42f, 0.10f)), // Amber pill container
+            ("Trash_MedicalSyringe",   "Medical Syringe",      new Vector3(0.04f, 0.04f, 0.20f), new Color(0.90f, 0.94f, 0.98f)), // Syringe
+            ("Trash_IVFluidBag",       "IV Fluid Bag",         new Vector3(0.16f, 0.22f, 0.04f), new Color(0.85f, 0.92f, 0.95f)), // IV drip bag
+            ("Trash_FirstAidPack",     "First Aid Gauze Box",  new Vector3(0.20f, 0.08f, 0.15f), new Color(0.95f, 0.95f, 0.95f)), // Medical box
+            ("Trash_ClinicalWasteBag", "Clinical Waste Bag",   new Vector3(0.24f, 0.24f, 0.24f), new Color(0.98f, 0.88f, 0.15f)), // Yellow hazard bag
+        };
+
+        var prefabs = new GameObject[defs.Length];
+        for (int i = 0; i < defs.Length; i++)
+            prefabs[i] = CreateSingleTrashPrefab(k_BackyardTrashRoot, defs[i].name, defs[i].display,
+                                                  defs[i].scale, defs[i].color, outlineMat, glowColor);
+        return prefabs;
+    }
+
+    static GameObject CreateSingleTrashPrefab(string rootFolder, string prefabName, string displayName,
+                                               Vector3 modelScale, Color modelColor, Material outlineMat, Color glowColor)
+    {
+        string path = $"{rootFolder}/{prefabName}.prefab";
 
         var root = new GameObject(prefabName);
 
@@ -191,7 +242,7 @@ public static class CleanupSceneBuilder
         var itemSO = new SerializedObject(item);
         itemSO.FindProperty("displayName").stringValue = displayName;
 
-        // Model child (primitive — replace with real mesh later)
+        // Model child (primitive placeholder — easily replaced with custom 3D model later)
         var modelGO = GameObject.CreatePrimitive(PrimitiveType.Cube);
         modelGO.name = "Model";
         modelGO.transform.SetParent(root.transform, false);
@@ -214,17 +265,17 @@ public static class CleanupSceneBuilder
         itemSO.FindProperty("depositPoint").objectReferenceValue = depositGO.transform;
         itemSO.ApplyModifiedPropertiesWithoutUndo();
 
-        // TrashGlow — inverted-hull outline
+        // TrashGlow — inverted-hull outline and pulse
         var glow   = root.AddComponent<TrashGlow>();
         var glowSO = new SerializedObject(glow);
         glowSO.FindProperty("outlineMaterial").objectReferenceValue = outlineMat;
         var renderers = glowSO.FindProperty("sourceRenderers");
         renderers.arraySize = 1;
         renderers.GetArrayElementAtIndex(0).objectReferenceValue = modelGO.GetComponent<MeshRenderer>();
-        glowSO.FindProperty("glowColor").colorValue          = new Color(0.1f, 1f, 0.8f, 1f);
+        glowSO.FindProperty("glowColor").colorValue          = glowColor;
         glowSO.FindProperty("intensity").floatValue          = 3f;
         glowSO.FindProperty("width").floatValue              = 0.006f;
-        glowSO.FindProperty("smoothOutlineNormals").boolValue = false; // primitives don't support it
+        glowSO.FindProperty("smoothOutlineNormals").boolValue = false;
         glowSO.ApplyModifiedPropertiesWithoutUndo();
 
         // Save & clean up temp scene object
@@ -233,100 +284,9 @@ public static class CleanupSceneBuilder
         return prefab;
     }
 
-    // ─── Basket Prefab ───────────────────────────────────────────────────────
-    [MenuItem("EnCare/Update Basket Prefab", false, 1)]
-    public static void UpdateBasketPrefabMenuItem()
-    {
-        EnsureDir(k_PrefabRoot);
-        CreateBasketPrefab();
-        AssetDatabase.SaveAssets();
-        AssetDatabase.Refresh();
-        Debug.Log("[EnCare] Updated Assets/EnCare/Prefabs/Basket.prefab with Rigidbody and XRGrabInteractable.");
-    }
-
     public static GameObject CreateBasketPrefab()
     {
-        const string path = "Assets/EnCare/Prefabs/Basket.prefab";
-
-        var root = new GameObject("Basket");
-
-        // Physics & Grabbable interaction
-        var rb = root.AddComponent<Rigidbody>();
-        rb.mass                   = 1.5f;
-        rb.useGravity             = true;
-        rb.isKinematic            = false;
-        rb.interpolation          = RigidbodyInterpolation.Interpolate;
-        rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
-
-        var grab = root.AddComponent<XRGrabInteractable>();
-        grab.selectMode       = InteractableSelectMode.Single;
-        grab.movementType     = XRGrabInteractable.MovementType.VelocityTracking;
-        grab.trackPosition    = true;
-        grab.trackRotation    = true;
-        grab.useDynamicAttach = true;
-
-        var gripGO = new GameObject("GripPoint");
-        gripGO.transform.SetParent(root.transform, false);
-        grab.attachTransform = gripGO.transform;
-
-        // Solid walls + bottom (open-top box: 0.28 × 0.25 × 0.28 interior)
-        AddSolidWall(root.transform, "Bottom",    new Vector3( 0f,    -0.125f,  0f),   new Vector3(0.30f, 0.015f, 0.30f));
-        AddSolidWall(root.transform, "WallFront", new Vector3( 0f,     0.05f, -0.15f), new Vector3(0.30f, 0.25f,  0.015f));
-        AddSolidWall(root.transform, "WallBack",  new Vector3( 0f,     0.05f,  0.15f), new Vector3(0.30f, 0.25f,  0.015f));
-        AddSolidWall(root.transform, "WallLeft",  new Vector3(-0.15f,  0.05f,  0f),   new Vector3(0.015f, 0.25f, 0.30f));
-        AddSolidWall(root.transform, "WallRight", new Vector3( 0.15f,  0.05f,  0f),   new Vector3(0.015f, 0.25f, 0.30f));
-
-        // Visual panels
-        CreateBasketVisuals(root.transform);
-
-        // Collection zone (trigger)
-        var zoneGO  = new GameObject("CollectionZone");
-        zoneGO.transform.SetParent(root.transform, false);
-        var trigger       = zoneGO.AddComponent<BoxCollider>();
-        trigger.isTrigger = true;
-        trigger.size      = new Vector3(0.26f, 0.22f, 0.26f);
-        trigger.center    = new Vector3(0f, 0f, 0f);
-
-        var collector = zoneGO.AddComponent<GarbageCollector>();
-        var collSO    = new SerializedObject(collector);
-        collSO.FindProperty("trashLayers").intValue = ~0; // All layers
-        collSO.FindProperty("itemsToKeep").intValue = 3;  // Keep 3 items inside basket
-        collSO.ApplyModifiedPropertiesWithoutUndo();
-
-        var prefab = PrefabUtility.SaveAsPrefabAsset(root, path);
-        Object.DestroyImmediate(root);
-        return prefab;
-    }
-
-    static void AddSolidWall(Transform parent, string name, Vector3 localPos, Vector3 size)
-    {
-        var go = new GameObject(name);
-        go.transform.SetParent(parent, false);
-        go.transform.localPosition = localPos;
-        go.AddComponent<BoxCollider>().size = size;
-    }
-
-    static void CreateBasketVisuals(Transform parent)
-    {
-        var mat = new Material(Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"))
-            { color = new Color(0.60f, 0.50f, 0.35f) }; // warm wood
-
-        void Panel(string n, Vector3 pos, Vector3 s)
-        {
-            var g = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            g.name = n;
-            g.transform.SetParent(parent, false);
-            g.transform.localPosition = pos;
-            g.transform.localScale    = s;
-            Object.DestroyImmediate(g.GetComponent<BoxCollider>());
-            g.GetComponent<MeshRenderer>().sharedMaterial = mat;
-        }
-
-        Panel("Vis_Bottom",    new Vector3( 0f,    -0.125f,  0f),   new Vector3(0.30f, 0.015f, 0.30f));
-        Panel("Vis_WallFront", new Vector3( 0f,     0.05f,  -0.15f), new Vector3(0.30f, 0.25f, 0.015f));
-        Panel("Vis_WallBack",  new Vector3( 0f,     0.05f,   0.15f), new Vector3(0.30f, 0.25f, 0.015f));
-        Panel("Vis_WallLeft",  new Vector3(-0.15f,  0.05f,   0f),   new Vector3(0.015f, 0.25f, 0.30f));
-        Panel("Vis_WallRight", new Vector3( 0.15f,  0.05f,   0f),   new Vector3(0.015f, 0.25f, 0.30f));
+        return BasketPrefabBuilder.RebuildBasketPrefab();
     }
 
     // ─── Lighting ────────────────────────────────────────────────────────────
@@ -497,7 +457,7 @@ public static class CleanupSceneBuilder
         so.ApplyModifiedPropertiesWithoutUndo();
     }
 
-    static void ConfigureSpawner(RandomTrashSpawner spawner, GameObject[] trashPrefabs, Transform[] spawnPoints)
+    static void ConfigureSpawner(RandomTrashSpawner spawner, GameObject[] trashPrefabs, Transform[] spawnPoints, Color glowColor)
     {
         var so   = new SerializedObject(spawner);
         var pool = so.FindProperty("prefabPool");
@@ -512,7 +472,7 @@ public static class CleanupSceneBuilder
 
         so.FindProperty("spawnCount").intValue         = 10;
         so.FindProperty("overrideGlowColor").boolValue = true;
-        so.FindProperty("levelGlowColor").colorValue   = new Color(0.1f, 1f, 0.8f, 1f);
+        so.FindProperty("levelGlowColor").colorValue   = glowColor;
         so.ApplyModifiedPropertiesWithoutUndo();
     }
 
@@ -740,75 +700,234 @@ public static class CleanupSceneBuilder
         return canvasGO;
     }
 
-    [MenuItem("EnCare/\U0001F6E0  Setup VR Features in Active Scene", false, 2)]
-    public static void SetupActiveSceneFeatures()
+    // ─── Backyard Level Setup ──────────────────────────────────────────────
+    [MenuItem("EnCare/\U0001F3E1 Setup Backyard Level (Lvl_Backyard)", false, 1)]
+    public static void SetupBackyardLevel()
+    {
+        const string backyardScenePath = "Assets/Scenes/Lvl_Backyard.unity";
+        var scene = EditorSceneManager.OpenScene(backyardScenePath, OpenSceneMode.Single);
+        if (!scene.IsValid())
+        {
+            EditorUtility.DisplayDialog("Error", "Could not open " + backyardScenePath, "OK");
+            return;
+        }
+
+        InitializeSceneForEnCare(isBackyard: true);
+        EditorSceneManager.MarkSceneDirty(scene);
+        EditorSceneManager.SaveScene(scene);
+        AssetDatabase.Refresh();
+
+        EditorUtility.DisplayDialog("\u2705 Backyard Level Initialized",
+            "Assets/Scenes/Lvl_Backyard.unity has been fully configured for EnCare VR:\n\n" +
+            "• XRInteractionManager + VR Camera resolution\n" +
+            "• 15 Backyard Trash Spawn Points\n" +
+            "• CleanupMission (10 items, 120s timer) + RandomTrashSpawner\n" +
+            "• GrabDistanceSettings (Configurable grab distance)\n" +
+            "• WristHUD on Left Controller\n" +
+            "• Gaze-activated Controller Help Tooltips on both hands\n" +
+            "• Pass/Fail Panels with smooth LazyFollowView\n" +
+            "• Stationed & Grabbable Basket with GarbageCollector\n\n" +
+            "You are ready to enter Play mode in VR!", "Awesome!");
+    }
+
+    [MenuItem("EnCare/\u2699 Initialize EnCare in Active Scene", false, 2)]
+    public static void InitializeActiveScene()
     {
         var activeScene = EditorSceneManager.GetActiveScene();
-
-        // 1. Pass/Fail panels -> LazyFollowView
-        var success = GameObject.Find("SuccessPanel");
-        if (success != null && success.GetComponent<LazyFollowView>() == null)
-        {
-            success.AddComponent<LazyFollowView>();
-            Debug.Log("[EnCare] Added LazyFollowView to SuccessPanel.");
-        }
-
-        var failure = GameObject.Find("FailurePanel");
-        if (failure != null && failure.GetComponent<LazyFollowView>() == null)
-        {
-            failure.AddComponent<LazyFollowView>();
-            Debug.Log("[EnCare] Added LazyFollowView to FailurePanel.");
-        }
-
-        // 2. CleanupManager -> GrabDistanceSettings
-        var manager = GameObject.Find("CleanupManager");
-        if (manager != null)
-        {
-            if (manager.GetComponent<GrabDistanceSettings>() == null)
-            {
-                manager.AddComponent<GrabDistanceSettings>();
-                Debug.Log("[EnCare] Added GrabDistanceSettings to CleanupManager.");
-            }
-
-            var spawner = manager.GetComponent<RandomTrashSpawner>();
-            if (spawner != null)
-            {
-                var spSO = new SerializedObject(spawner);
-                spSO.FindProperty("spawnCount").intValue = 10;
-                spSO.ApplyModifiedPropertiesWithoutUndo();
-            }
-        }
-
-        // 3. XR Origin -> Controller Help UIs
-        var xrTransforms = Object.FindObjectsByType<Transform>(FindObjectsSortMode.None);
-        foreach (var t in xrTransforms)
-        {
-            if (t.name == "Left Controller" || t.name == "LeftHand Controller")
-            {
-                CreateControllerHelpUI(t, ControllerHelpUI.ControllerHand.Left);
-                Debug.Log("[EnCare] Added ControllerHelpUI to Left Controller.");
-            }
-            else if (t.name == "Right Controller" || t.name == "RightHand Controller")
-            {
-                CreateControllerHelpUI(t, ControllerHelpUI.ControllerHand.Right);
-                Debug.Log("[EnCare] Added ControllerHelpUI to Right Controller.");
-            }
-        }
-
-        // 4. Basket -> GarbageCollector itemsToKeep = 3
-        var collector = Object.FindFirstObjectByType<GarbageCollector>();
-        if (collector != null)
-        {
-            var collSO = new SerializedObject(collector);
-            collSO.FindProperty("itemsToKeep").intValue = 3;
-            collSO.ApplyModifiedPropertiesWithoutUndo();
-            Debug.Log("[EnCare] Configured GarbageCollector.itemsToKeep = 3.");
-        }
-
+        InitializeSceneForEnCare(isBackyard: activeScene.name.ToLower().Contains("backyard"));
         EditorSceneManager.MarkSceneDirty(activeScene);
         EditorSceneManager.SaveScene(activeScene);
-        AssetDatabase.SaveAssets();
-        Debug.Log("[EnCare] VR Features successfully set up and saved in active scene: " + activeScene.name);
+        AssetDatabase.Refresh();
+
+        EditorUtility.DisplayDialog("\u2705 Active Scene Initialized",
+            "Configured EnCare VR gameplay systems in " + activeScene.name, "Got it!");
+    }
+
+    static void InitializeSceneForEnCare(bool isBackyard)
+    {
+        // 1. Ensure Directories
+        EnsureDir(k_PrefabRoot);
+        EnsureDir(k_TrashRoot);
+        EnsureDir(k_MatRoot);
+
+        // 2. Prefabs & Materials
+        Material outlineMat;
+        GameObject[] trashPrefabs;
+        Color levelGlowColor;
+
+        if (isBackyard)
+        {
+            EnsureDir(k_BackyardTrashRoot);
+            levelGlowColor = new Color(0.2f, 1.0f, 0.35f, 1f); // Vibrant Clinical Neon Green
+            outlineMat = GetOrCreateBackyardOutlineMaterial(levelGlowColor);
+            trashPrefabs = CreateClinicalTrashPrefabs(outlineMat, levelGlowColor);
+        }
+        else
+        {
+            levelGlowColor = new Color(0.1f, 1f, 0.8f, 1f); // Office Cyan
+            outlineMat = GetOrCreateOutlineMaterial();
+            trashPrefabs = CreateTrashPrefabs(outlineMat);
+        }
+
+        GameObject basketPrefab = null;
+        if (!isBackyard)
+        {
+            basketPrefab = CreateBasketPrefab();
+        }
+
+        // 3. Ensure XR Interaction Manager
+        if (Object.FindFirstObjectByType<XRInteractionManager>() == null)
+        {
+            var mgrGO = new GameObject("XR Interaction Manager");
+            mgrGO.AddComponent<XRInteractionManager>();
+            Debug.Log("[EnCare] Added XRInteractionManager to scene.");
+        }
+
+        // 4. Find or place XR Origin
+        GameObject xrOrigin = GameObject.Find("XR Origin (XR Rig)")
+                           ?? GameObject.Find("XR Origin")
+                           ?? GameObject.Find("Complete XR Origin Set Up Variant");
+        if (xrOrigin == null)
+        {
+            xrOrigin = PlaceXROrigin();
+        }
+
+        // 5. Clean up standalone non-VR Main Camera if XR Origin has its own camera
+        var standaloneCams = Object.FindObjectsByType<Camera>(FindObjectsSortMode.None);
+        foreach (var cam in standaloneCams)
+        {
+            if (cam.transform.parent == null && cam.gameObject.name == "Main Camera")
+            {
+                // Disable standalone camera so XR Origin's camera renders the VR view
+                cam.gameObject.SetActive(false);
+                Debug.Log("[EnCare] Disabled standalone camera in scene root to avoid VR camera conflicts.");
+            }
+        }
+
+        // 6. Spawn Points (15 backyard or standard points)
+        var existingSpawnParent = GameObject.Find("TrashSpawnPoints");
+        if (existingSpawnParent != null) Object.DestroyImmediate(existingSpawnParent);
+
+        var spawnParent = new GameObject("TrashSpawnPoints");
+        Transform[] spawnPoints;
+        if (isBackyard)
+        {
+            spawnPoints = CreateBackyardSpawnPoints(spawnParent.transform);
+        }
+        else
+        {
+            spawnPoints = CreateSpawnPoints(spawnParent.transform);
+        }
+
+        // 7. CleanupManager
+        var existingManager = GameObject.Find("CleanupManager");
+        if (existingManager != null) Object.DestroyImmediate(existingManager);
+
+        var managerGO = new GameObject("CleanupManager");
+        var mission = managerGO.AddComponent<CleanupMission>();
+        var spawner = managerGO.AddComponent<RandomTrashSpawner>();
+        var grabDist = managerGO.AddComponent<GrabDistanceSettings>();
+        ConfigureMission(mission, spawner);
+        ConfigureSpawner(spawner, trashPrefabs, spawnPoints, levelGlowColor);
+
+        // 8. Event Bridge
+        var existingReceiver = GameObject.Find("CleanupEventReceiver");
+        if (existingReceiver != null) Object.DestroyImmediate(existingReceiver);
+
+        var receiverGO = new GameObject("CleanupEventReceiver");
+        var receiver = receiverGO.AddComponent<CleanupEventReceiver>();
+
+        // 9. Handover / Restart Controller
+        var existingHandover = GameObject.Find("HandoverController");
+        if (existingHandover != null) Object.DestroyImmediate(existingHandover);
+
+        var handoverGO = new GameObject("HandoverController");
+        var handover = handoverGO.AddComponent<HandoverCutscene>();
+
+        // 10. Pass/Fail UI Panels
+        var existingSuccess = GameObject.Find("SuccessPanel");
+        if (existingSuccess != null) Object.DestroyImmediate(existingSuccess);
+
+        var existingFailure = GameObject.Find("FailurePanel");
+        if (existingFailure != null) Object.DestroyImmediate(existingFailure);
+
+        GameObject successPanel = CreateSuccessPanel();
+        GameObject failurePanel = CreateFailurePanel(handover);
+
+        // Wire receiver
+        var rcvSO = new SerializedObject(receiver);
+        rcvSO.FindProperty("successPanel").objectReferenceValue = successPanel;
+        rcvSO.FindProperty("failurePanel").objectReferenceValue = failurePanel;
+        rcvSO.ApplyModifiedPropertiesWithoutUndo();
+
+        UnityEventTools.AddVoidPersistentListener(mission.onCompleted, receiver.OnSuccess);
+        UnityEventTools.AddVoidPersistentListener(mission.onFailed, receiver.OnFailure);
+        EditorUtility.SetDirty(mission);
+
+        // 11. Wrist HUD on Left Controller
+        var existingHUD = GameObject.Find("WristHUD");
+        if (existingHUD != null) Object.DestroyImmediate(existingHUD);
+        CreateWristHUD(mission, xrOrigin);
+
+        // 12. Controller Help UIs
+        SetupControllerHelpUIs(xrOrigin);
+
+        // 13. Basket in Scene (Only for standard/office scene — completely skipped for backyard where user creates biohazard bag by hand)
+        if (!isBackyard && basketPrefab != null)
+        {
+            var existingBasket = GameObject.Find("Basket");
+            if (existingBasket != null) Object.DestroyImmediate(existingBasket);
+            PlaceBasketAtPosition(basketPrefab, mission, new Vector3(0f, 0.13f, 0.5f));
+        }
+
+        Debug.Log("[EnCare] Setup complete for scene: " + EditorSceneManager.GetActiveScene().name);
+    }
+
+    static Transform[] CreateBackyardSpawnPoints(Transform parent)
+    {
+        // 15 positions placed across tables, deck, grass, pathway, and garden
+        var positions = new Vector3[]
+        {
+            new Vector3(10.5f, 0.45f, -9.5f),   // Patio deck coffee table
+            new Vector3( 7.5f, 0.20f, -11.0f),  // Near porch stairs
+            new Vector3(12.0f, 0.15f, -7.0f),   // Patio lounge corner
+            new Vector3( 5.0f, 0.10f, -5.0f),   // Upper lawn
+            new Vector3( 2.0f, 0.10f, -11.5f),  // Main stone walkway
+            new Vector3( 0.0f, 0.10f,  0.0f),   // Central lawn area
+            new Vector3(-4.0f, 0.10f, -14.0f),  // Lower path
+            new Vector3(-8.0f, 0.10f, -5.0f),   // Near garden fence
+            new Vector3(-12.0f, 0.40f, -8.0f),  // Garden bench / planter
+            new Vector3(-15.0f, 0.10f,  4.0f),  // Far backyard corner
+            new Vector3( 8.0f, 0.60f, -3.0f),   // Outdoor BBQ counter
+            new Vector3(-2.0f, 0.15f,  8.0f),   // Planter garden bed
+            new Vector3( 4.0f, 0.10f,  7.5f),   // Deck pool edge
+            new Vector3(-10.0f, 0.10f, 11.0f),  // Gazebo / shed front
+            new Vector3(14.0f, 0.10f, -14.5f),  // Side gate entrance
+        };
+
+        var points = new Transform[positions.Length];
+        for (int i = 0; i < positions.Length; i++)
+        {
+            var go = new GameObject($"Spawn_Backyard_{(i + 1):00}");
+            go.transform.SetParent(parent, false);
+            go.transform.position = positions[i];
+            points[i] = go.transform;
+        }
+        return points;
+    }
+
+    static void PlaceBasketAtPosition(GameObject basketPrefab, CleanupMission mission, Vector3 pos)
+    {
+        var basket = (GameObject)PrefabUtility.InstantiatePrefab(basketPrefab);
+        basket.transform.position = pos;
+
+        var collector = basket.GetComponentInChildren<GarbageCollector>();
+        if (collector != null)
+        {
+            var so = new SerializedObject(collector);
+            so.FindProperty("mission").objectReferenceValue = mission;
+            so.ApplyModifiedPropertiesWithoutUndo();
+        }
     }
 
     // ─── UI Helpers ──────────────────────────────────────────────────────────
@@ -865,3 +984,4 @@ public static class CleanupSceneBuilder
         AssetDatabase.CreateFolder(parent, folder);
     }
 }
+
