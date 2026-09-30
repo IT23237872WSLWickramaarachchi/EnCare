@@ -230,6 +230,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::EnCare.TrashItem
   displayName: Keyboard
   depositPoint: {fileID: 149379096648398048}
+  grabInteractable: {fileID: 0}
+  onRetained:
+    m_PersistentCalls:
+      m_Calls: []
+  onAvailable:
+    m_PersistentCalls:
+      m_Calls: []
 --- !u!114 &5784218371897636875
 MonoBehaviour:
   m_ObjectHideFlags: 0

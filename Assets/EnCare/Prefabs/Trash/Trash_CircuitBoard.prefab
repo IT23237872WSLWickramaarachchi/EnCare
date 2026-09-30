@@ -382,6 +382,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::EnCare.TrashItem
   displayName: Circuit Board
   depositPoint: {fileID: 6712947706140179949}
+  grabInteractable: {fileID: 0}
+  onRetained:
+    m_PersistentCalls:
+      m_Calls: []
+  onAvailable:
+    m_PersistentCalls:
+      m_Calls: []
 --- !u!114 &43486514742752603
 MonoBehaviour:
   m_ObjectHideFlags: 0

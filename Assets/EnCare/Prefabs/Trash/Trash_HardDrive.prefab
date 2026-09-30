@@ -320,6 +320,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::EnCare.TrashItem
   displayName: Hard Drive
   depositPoint: {fileID: 4620313475510190859}
+  grabInteractable: {fileID: 0}
+  onRetained:
+    m_PersistentCalls:
+      m_Calls: []
+  onAvailable:
+    m_PersistentCalls:
+      m_Calls: []
 --- !u!114 &6909518086963899707
 MonoBehaviour:
   m_ObjectHideFlags: 0

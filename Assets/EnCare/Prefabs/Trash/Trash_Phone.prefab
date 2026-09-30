@@ -230,6 +230,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::EnCare.TrashItem
   displayName: Old Phone
   depositPoint: {fileID: 357225819586803238}
+  grabInteractable: {fileID: 0}
+  onRetained:
+    m_PersistentCalls:
+      m_Calls: []
+  onAvailable:
+    m_PersistentCalls:
+      m_Calls: []
 --- !u!114 &1073373257327931832
 MonoBehaviour:
   m_ObjectHideFlags: 0

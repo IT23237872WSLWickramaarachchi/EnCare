@@ -490,7 +490,7 @@ public static class CleanupSceneBuilder
         }
     }
 
-    // ─── UI: Success Panel ───────────────────────────────────────────────────
+    // ─── UI: Success Panel (old static fallback) ──────────────────────────────
     static GameObject CreateSuccessPanel()
     {
         var panel = CreateWorldCanvas("SuccessPanel", new Vector3(0f, 1.6f, 2f), new Vector2(600f, 380f));
@@ -505,6 +505,53 @@ public static class CleanupSceneBuilder
             new Vector2(0, -20),  new Vector2(540, 100), 30, Color.white);
         MakeTMP(panel.transform, "Hint",     "Remove your headset to continue.",
             new Vector2(0, -140), new Vector2(540,  50), 20, new Color(0.7f, 0.9f, 0.8f));
+
+        return panel;
+    }
+
+    // ─── UI: Win Screen (new — with countdown + proceed button) ──────────────
+    static GameObject CreateWinScreenPanel(string levelId)
+    {
+        var panel = CreateWorldCanvas("WinScreenPanel", new Vector3(0f, 1.6f, 2f), new Vector2(650f, 420f));
+        panel.AddComponent<LazyFollowView>();
+        panel.SetActive(false);
+
+        AddPanelBg(panel, new Color(0.03f, 0.15f, 0.06f, 0.95f)); // dark green
+
+        var titleGO = MakeTMP(panel.transform, "TitleText", "Mission Complete!",
+            new Vector2(0, 130), new Vector2(600, 100), 52, new Color(0.3f, 1f, 0.55f));
+        var bodyGO = MakeTMP(panel.transform, "BodyText", "All waste collected!\nGreat job!",
+            new Vector2(0, 40), new Vector2(580, 80), 28, Color.white);
+        var countdownGO = MakeTMP(panel.transform, "CountdownText", "Proceeding in 10s...",
+            new Vector2(0, -30), new Vector2(580, 50), 22, new Color(0.7f, 0.9f, 0.8f));
+
+        // Proceed button
+        var btnGO = new GameObject("ProceedButton");
+        btnGO.transform.SetParent(panel.transform, false);
+        var btnImg = btnGO.AddComponent<Image>();
+        btnImg.color = new Color(0.15f, 0.55f, 0.25f);
+        var btnRT = btnGO.GetComponent<RectTransform>();
+        btnRT.anchoredPosition = new Vector2(0, -120);
+        btnRT.sizeDelta = new Vector2(280, 70);
+
+        var btn = btnGO.AddComponent<Button>();
+        btn.targetGraphic = btnImg;
+        MakeTMP(btnGO.transform, "ButtonLabel", "Proceed ▶",
+            Vector2.zero, new Vector2(260, 60), 34, Color.white);
+
+        // WinScreenUI component
+        var winUI = panel.AddComponent<WinScreenUI>();
+        var so = new SerializedObject(winUI);
+        so.FindProperty("levelId").stringValue = levelId;
+        so.FindProperty("titleText").objectReferenceValue = titleGO.GetComponent<TMP_Text>();
+        so.FindProperty("countdownText").objectReferenceValue = countdownGO.GetComponent<TMP_Text>();
+        so.FindProperty("bodyText").objectReferenceValue = bodyGO.GetComponent<TMP_Text>();
+        so.FindProperty("proceedButton").objectReferenceValue = btn;
+        so.ApplyModifiedPropertiesWithoutUndo();
+
+        // Wire button → WinScreenUI.OnProceedClicked
+        UnityEventTools.AddVoidPersistentListener(btn.onClick, winUI.OnProceedClicked);
+        EditorUtility.SetDirty(winUI);
 
         return panel;
     }
@@ -655,49 +702,8 @@ public static class CleanupSceneBuilder
     public static GameObject CreateControllerHelpUI(Transform controllerTransform, ControllerHelpUI.ControllerHand hand)
     {
         if (controllerTransform == null) return null;
-        var existing = controllerTransform.GetComponentInChildren<ControllerHelpUI>(true);
-        if (existing != null) return existing.gameObject;
-
-        string name = hand == ControllerHelpUI.ControllerHand.Left ? "LeftControllerHelpUI" : "RightControllerHelpUI";
-        var canvasGO = new GameObject(name);
-        canvasGO.transform.SetParent(controllerTransform, false);
-
-        canvasGO.transform.localPosition = new Vector3(0f, 0.08f, 0.03f);
-        canvasGO.transform.localRotation = Quaternion.Euler(35f, 0f, 0f);
-        canvasGO.transform.localScale    = Vector3.one * 0.00035f;
-
-        var canvas = canvasGO.AddComponent<Canvas>();
-        canvas.renderMode = RenderMode.WorldSpace;
-        canvasGO.AddComponent<CanvasScaler>();
-        var canvasGroup = canvasGO.AddComponent<CanvasGroup>();
-
-        var rt = canvasGO.GetComponent<RectTransform>();
-        rt.sizeDelta = new Vector2(340f, 220f);
-
-        AddPanelBg(canvasGO, new Color(0.04f, 0.08f, 0.16f, 0.90f));
-
-        string title = hand == ControllerHelpUI.ControllerHand.Left ? "Left Hand" : "Right Hand";
-        string body = hand == ControllerHelpUI.ControllerHand.Left
-            ? "🕹️ <b>Thumbstick:</b> Walk / Move\n✊ <b>Grip:</b> Grab Trash & Basket\n👆 <b>Trigger:</b> Select / Interact"
-            : "🕹️ <b>Thumbstick:</b> Snap Turn / Teleport\n✊ <b>Grip:</b> Grab Trash & Basket\n🗑️ <b>Basket:</b> Release inside to score";
-
-        var titleGO = MakeTMP(canvasGO.transform, "TitleText", title,
-            new Vector2(0f, 75f), new Vector2(300f, 45f), 18, new Color(0.2f, 0.9f, 1f));
-
-        var bodyGO = MakeTMP(canvasGO.transform, "BodyText", body,
-            new Vector2(0f, -15f), new Vector2(300f, 130f), 13, Color.white);
-
-        var helpComp = canvasGO.AddComponent<ControllerHelpUI>();
-        var so = new SerializedObject(helpComp);
-        so.FindProperty("m_Hand").enumValueIndex = (int)hand;
-        so.FindProperty("m_TitleText").stringValue = title;
-        so.FindProperty("m_InstructionsText").stringValue = body;
-        so.FindProperty("m_CanvasGroup").objectReferenceValue = canvasGroup;
-        so.FindProperty("m_TitleTMP").objectReferenceValue = titleGO.GetComponent<TMP_Text>();
-        so.FindProperty("m_BodyTMP").objectReferenceValue = bodyGO.GetComponent<TMP_Text>();
-        so.ApplyModifiedPropertiesWithoutUndo();
-
-        return canvasGO;
+        var help = ControllerHelpUI.CreateHelpUI(controllerTransform, hand);
+        return help != null ? help.gameObject : null;
     }
 
     // ─── Backyard Level Setup ──────────────────────────────────────────────
@@ -848,14 +854,22 @@ public static class CleanupSceneBuilder
         var existingSuccess = GameObject.Find("SuccessPanel");
         if (existingSuccess != null) Object.DestroyImmediate(existingSuccess);
 
+        var existingWinScreen = GameObject.Find("WinScreenPanel");
+        if (existingWinScreen != null) Object.DestroyImmediate(existingWinScreen);
+
         var existingFailure = GameObject.Find("FailurePanel");
         if (existingFailure != null) Object.DestroyImmediate(existingFailure);
 
+        // Determine level ID for win screen routing
+        string currentLevelId = isBackyard ? "Lvl_Backyard" : "CleanupScene";
+
         GameObject successPanel = CreateSuccessPanel();
+        GameObject winScreenPanel = CreateWinScreenPanel(currentLevelId);
         GameObject failurePanel = CreateFailurePanel(handover);
 
-        // Wire receiver
+        // Wire receiver — WinScreenUI takes priority over old success panel
         var rcvSO = new SerializedObject(receiver);
+        rcvSO.FindProperty("winScreenUI").objectReferenceValue = winScreenPanel.GetComponent<WinScreenUI>();
         rcvSO.FindProperty("successPanel").objectReferenceValue = successPanel;
         rcvSO.FindProperty("failurePanel").objectReferenceValue = failurePanel;
         rcvSO.ApplyModifiedPropertiesWithoutUndo();
@@ -881,6 +895,32 @@ public static class CleanupSceneBuilder
         }
 
         Debug.Log("[EnCare] Setup complete for scene: " + EditorSceneManager.GetActiveScene().name);
+    }
+
+    [MenuItem("EnCare/➕ Add WinScreenUI to Active Scene (Safe)", false, 3)]
+    public static void SafeAddWinScreenUI()
+    {
+        var receiver = Object.FindFirstObjectByType<CleanupEventReceiver>();
+        if (receiver == null)
+        {
+            EditorUtility.DisplayDialog("Error", "No CleanupEventReceiver found in the active scene. Is this a gameplay scene?", "OK");
+            return;
+        }
+
+        var existingWinScreen = GameObject.Find("WinScreenPanel");
+        if (existingWinScreen != null) Object.DestroyImmediate(existingWinScreen);
+
+        string currentLevelId = EditorSceneManager.GetActiveScene().name;
+        GameObject winScreenPanel = CreateWinScreenPanel(currentLevelId);
+
+        var rcvSO = new SerializedObject(receiver);
+        rcvSO.FindProperty("winScreenUI").objectReferenceValue = winScreenPanel.GetComponent<WinScreenUI>();
+        rcvSO.ApplyModifiedPropertiesWithoutUndo();
+        
+        EditorUtility.SetDirty(receiver);
+        EditorSceneManager.MarkSceneDirty(EditorSceneManager.GetActiveScene());
+
+        EditorUtility.DisplayDialog("✅ WinScreenUI Added", "Safely added the WinScreenUI to the active scene and wired it to the CleanupEventReceiver.", "Awesome");
     }
 
     static Transform[] CreateBackyardSpawnPoints(Transform parent)

@@ -102,29 +102,39 @@ namespace EnCare.Editor
             float basketHeight = 0.24f;
 
             // Bottom
-            AddBoxCol(root, "Col_Bottom",
+            var colBottom = AddBoxCol(root, "Col_Bottom",
                 new Vector3(0f, wallThick * 0.5f, 0f),
                 new Vector3(basketWidth, wallThick, basketLength));
 
             // Wall Front (+Z)
-            AddBoxCol(root, "Col_Front",
+            var colFront = AddBoxCol(root, "Col_Front",
                 new Vector3(0f, basketHeight * 0.5f, basketLength * 0.5f - wallThick * 0.5f),
                 new Vector3(basketWidth, basketHeight, wallThick));
 
             // Wall Back (-Z)
-            AddBoxCol(root, "Col_Back",
+            var colBack = AddBoxCol(root, "Col_Back",
                 new Vector3(0f, basketHeight * 0.5f, -basketLength * 0.5f + wallThick * 0.5f),
                 new Vector3(basketWidth, basketHeight, wallThick));
 
             // Wall Left (-X)
-            AddBoxCol(root, "Col_Left",
+            var colLeft = AddBoxCol(root, "Col_Left",
                 new Vector3(-basketWidth * 0.5f + wallThick * 0.5f, basketHeight * 0.5f, 0f),
                 new Vector3(wallThick, basketHeight, basketLength));
 
             // Wall Right (+X)
-            AddBoxCol(root, "Col_Right",
+            var colRight = AddBoxCol(root, "Col_Right",
                 new Vector3(basketWidth * 0.5f - wallThick * 0.5f, basketHeight * 0.5f, 0f),
                 new Vector3(wallThick, basketHeight, basketLength));
+
+            // Explicitly assign only the solid wall/floor colliders to XRGrabInteractable so the internal trigger is excluded
+            grab.colliders.Clear();
+            grab.colliders.Add(colBottom);
+            grab.colliders.Add(colFront);
+            grab.colliders.Add(colBack);
+            grab.colliders.Add(colLeft);
+            grab.colliders.Add(colRight);
+
+            var compensator = root.AddComponent<BasketLocomotionCompensator>();
 
             // Collection Zone (Trigger) inside the basket cavity
             var zoneGO = new GameObject("CollectionZone");
@@ -142,7 +152,12 @@ namespace EnCare.Editor
 
             var collector = zoneGO.AddComponent<GarbageCollector>();
             var collSO = new SerializedObject(collector);
+            collSO.FindProperty("mode").enumValueIndex = (int)GarbageCollector.CollectionMode.RetainPhysicalItems;
+            collSO.FindProperty("retainedCapacity").intValue = 3;
+            collSO.FindProperty("exitMargin").floatValue = 0.015f;
+            collSO.FindProperty("zone").objectReferenceValue = trigger;
             collSO.FindProperty("trashLayers").intValue = ~0; // All layers
+            collSO.FindProperty("locomotionCompensator").objectReferenceValue = compensator;
             collSO.ApplyModifiedPropertiesWithoutUndo();
 
             // Save as Prefab
@@ -156,13 +171,14 @@ namespace EnCare.Editor
             return prefab;
         }
 
-        static void AddBoxCol(GameObject parent, string name, Vector3 center, Vector3 size)
+        static BoxCollider AddBoxCol(GameObject parent, string name, Vector3 center, Vector3 size)
         {
             var colGO = new GameObject(name);
             colGO.transform.SetParent(parent.transform, false);
             colGO.transform.localPosition = center;
             var box = colGO.AddComponent<BoxCollider>();
             box.size = size;
+            return box;
         }
     }
 }

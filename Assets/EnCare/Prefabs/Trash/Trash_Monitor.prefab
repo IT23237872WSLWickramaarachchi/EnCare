@@ -351,6 +351,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::EnCare.TrashItem
   displayName: Old Monitor
   depositPoint: {fileID: 2050487104997925721}
+  grabInteractable: {fileID: 0}
+  onRetained:
+    m_PersistentCalls:
+      m_Calls: []
+  onAvailable:
+    m_PersistentCalls:
+      m_Calls: []
 --- !u!114 &7962682967973914639
 MonoBehaviour:
   m_ObjectHideFlags: 0

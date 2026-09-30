@@ -6,14 +6,23 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
-    path: Assets/Scenes/Lvl_Backyard.unity
-    guid: 912c6c49f3f6e1642bd7663270157ba1
+    path: Assets/Scenes/Lvl_StartMenu.unity
+    guid: 5a62a1a4ea0a09d429ec4679b1a53e4e
   - enabled: 1
     path: Assets/Scenes/CleanupScene.unity
     guid: 9634fd5e5d2378a4f97ed811ab8d1b10
   - enabled: 1
+    path: Assets/Scenes/Lvl_Backyard.unity
+    guid: 912c6c49f3f6e1642bd7663270157ba1
+  - enabled: 1
     path: Assets/Scenes/SampleScene.unity
     guid: 55daccc09a3b69647bbab145b54a3ab3
+  - enabled: 1
+    path: Assets/Scenes/Lvl_OfficeCutScene.unity
+    guid: 3eafbecfa17c6254195d01e71091519e
+  - enabled: 1
+    path: Assets/Scenes/Lvl_BackyardCutScene.unity
+    guid: 8326810efee49e745879a27d04002418
   m_configObjects:
     Unity.XR.Oculus.Settings: {fileID: 11400000, guid: bfa1182bd221b4ca89619141f66f1260, type: 2}
     Unity.XR.WindowsMR.Settings: {fileID: 11400000, guid: dc5a169419fa04987b057f65238cf3ba, type: 2}

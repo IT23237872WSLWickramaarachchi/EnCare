@@ -254,6 +254,7 @@ GameObject:
   - component: {fileID: 8846332001486447662}
   - component: {fileID: 7484806978544664325}
   - component: {fileID: 3024450638589572241}
+  - component: {fileID: 4892019482019482019}
   m_Layer: 0
   m_Name: Basket
   m_TagString: Untagged
@@ -271,8 +272,8 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
+  m_LocalScale: {x: 2, y: 2, z: 2}
+  m_ConstrainProportionsScale: 1
   m_Children:
   - {fileID: 3238541518470293339}
   - {fileID: 8375853304144077042}
@@ -324,7 +325,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Unity.XR.Interaction.Toolkit::UnityEngine.XR.Interaction.Toolkit.Interactables.XRGrabInteractable
   m_InteractionManager: {fileID: 0}
-  m_Colliders: []
+  m_Colliders:
+  - {fileID: 2307792325654947765}
+  - {fileID: 615594909574052932}
+  - {fileID: 8818982275147858353}
+  - {fileID: 3117947542866791029}
+  - {fileID: 3900299802551217609}
   m_InteractionLayers:
     m_Bits: 1
   m_DistanceCalculationMode: 1
@@ -506,11 +512,16 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b97b4ab2a2fce524a91e9f8cdc5c1d5b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EnCare.GarbageCollector
+  mode: 1
+  retainedCapacity: 3
+  exitMargin: 0.015
   mission: {fileID: 0}
+  zone: {fileID: 1612498504256642671}
   trashLayers:
     serializedVersion: 2
     m_Bits: 4294967295
   depositAudio: {fileID: 0}
+  locomotionCompensator: {fileID: 4892019482019482019}
 --- !u!1 &7479549226401111341
 GameObject:
   m_ObjectHideFlags: 0
@@ -642,3 +653,21 @@ Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 1376c4e481759bb419fc5969a8ad4a19, type: 3}
   m_PrefabInstance: {fileID: 3133138816282116272}
   m_PrefabAsset: {fileID: 0}
+--- !u!114 &4892019482019482019
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5095828032127993707}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d40ea8feeff640418fc5a5b3c21bd33f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::EnCare.BasketLocomotionCompensator
+  compensationEnabled: 1
+  locomotionRoot: {fileID: 0}
+  basketBody: {fileID: 7484806978544664325}
+  basketGrabInteractable: {fileID: 3024450638589572241}
+  bodyTransformer: {fileID: 0}
+
